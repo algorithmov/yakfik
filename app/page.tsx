@@ -1,180 +1,355 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import {
-  MapPin,
-  ChevronDown,
-  Mic,
-  ArrowRight,
-  Flame,
-  Coffee,
-  Leaf,
-} from "lucide-react";
-import YakFikLogo from "@/components/YakFikLogo";
-import BottomNav from "@/components/BottomNav";
+import { useState, useRef, useEffect } from 'react';
 
-const trendingItems = [
-  { icon: Flame, label: "Shawarma Platter", price: "~35 QAR avg.", color: "bg-orange-50 text-orange-500" },
-  { icon: Coffee, label: "Karak & Paratha", price: "~15 QAR avg.", color: "bg-blue-50 text-blue-500" },
-  { icon: Leaf, label: "Vegan Bowl", price: "~45 QAR avg.", color: "bg-green-50 text-green-500" },
+type Message = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  toolLogs?: ToolLog[];
+};
+
+type ToolLog = {
+  app: string;
+  tool: string;
+  args: Record<string, unknown>;
+  result: string;
+};
+
+const SUGGESTIONS = [
+  'What shawarma options are available?',
+  'Find me the cheapest burger',
+  'What deals are on right now?',
+  'Get me the fastest pizza delivery',
+  'Compare prices for shawarma and order the best one',
 ];
 
-const quickSearches = [
-  "Best burger under 25 QAR",
-  "Pizza for two under 60",
-  "Healthy lunch deals",
-];
+export default function YakfikPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [thinking, setThinking] = useState(false);
+  const [liveLog, setLiveLog] = useState<ToolLog[]>([]);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-export default function HomePage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, thinking]);
+
+  async function sendMessage(text: string) {
+    if (!text.trim() || thinking) return;
+
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', text };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput('');
+    setThinking(true);
+    setLiveLog([]);
+
+    const history = [...messages, userMsg].map((m) => ({
+      role: m.role,
+      content: m.text,
+    }));
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history }),
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const logs: ToolLog[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() ?? '';
+
+        for (const part of parts) {
+          const eventMatch = part.match(/^event: (\w+)/);
+          const dataMatch = part.match(/\ndata: (.+)$/s);
+          if (!eventMatch || !dataMatch) continue;
+
+          const event = eventMatch[1];
+          const data = JSON.parse(dataMatch[1]);
+
+          if (event === 'tool_log') {
+            logs.push(data as ToolLog);
+            setLiveLog([...logs]);
+          } else if (event === 'answer') {
+            const assistantMsg: Message = {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              text: data.text,
+              toolLogs: data.toolLogs,
+            };
+            setMessages((prev) => [...prev, assistantMsg]);
+          } else if (event === 'error') {
+            const errorMsg: Message = {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              text: `Something went wrong: ${data.message}`,
+            };
+            setMessages((prev) => [...prev, errorMsg]);
+          }
+        }
+      }
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: 'assistant', text: `Error: ${err instanceof Error ? err.message : 'Unknown error'}` },
+      ]);
+    } finally {
+      setThinking(false);
+      setLiveLog([]);
+      inputRef.current?.focus();
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  }
+
+  const appStyle: Record<string, { color: string; emoji: string }> = {
+    talabat: { color: '#e8400c', emoji: '🍔' },
+    snoonu: { color: '#dc2626', emoji: '🐾' },
+  };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/95 px-5 pt-4 backdrop-blur-md">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <YakFikLogo size={36} />
-            <span className="text-lg font-bold tracking-tight text-[#3D9970]">
-              Yak<span className="text-[#2E7D5A]">Fik</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100">
-              <MapPin size={14} className="text-[#3D9970]" />
-              Doha, QA
-              <ChevronDown size={14} className="text-gray-400" />
-            </button>
-            <div className="h-9 w-9 overflow-hidden rounded-full border-2 border-[#3D9970]/20">
-              <Image
-                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face"
-                alt="Profile"
-                width={36}
-                height={36}
-                className="h-full w-full object-cover"
-              />
-            </div>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100dvh',
+      maxWidth: 720,
+      margin: '0 auto',
+    }}>
+      <header style={{
+        padding: '16px 20px',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--surface)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        flexShrink: 0,
+      }}>
+        <div style={{ fontSize: 36 }}>🏜️</div>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--text)', letterSpacing: '-0.03em' }}>يكفيك · Yakfik</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 1 }}>
+            Compares Talabat &amp; Snoonu · finds the best deal · orders for you
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="px-5 pt-6">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#3D9970]/10 to-[#3D9970]/5 p-6">
-          <div className="absolute -right-4 -top-4 opacity-10">
-            <YakFikLogo size={120} />
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '20px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+      }}>
+        {messages.length === 0 && !thinking && (
+          <div style={{ textAlign: 'center', marginTop: 48 }}>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>🐱</div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: 'var(--text)', marginBottom: 8 }}>
+              Hey, I&apos;m Yakfik!
+            </div>
+            <div style={{ fontSize: 15, color: 'var(--muted)', marginBottom: 32, lineHeight: 1.6 }}>
+              Tell me what you want to eat and I&apos;ll check both Talabat and Snoonu to find you the best deal — then order it.
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 999,
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
-          <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-gray-900">
-            Find the best deal.
-            <span className="block text-[#3D9970]">Automatically.</span>
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-gray-600">
-            Tell Yakfik what you&apos;re craving and we&apos;ll compare your options across all delivery apps.
-          </p>
-        </div>
-      </section>
+        )}
 
-      {/* Trending Now */}
-      <section className="mt-6 px-5">
-        <h2 className="mb-3 text-lg font-bold text-gray-900">Trending Now</h2>
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-          {trendingItems.map((item) => (
-            <button
-              key={item.label}
-              className="flex-shrink-0 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition hover:shadow-md hover:ring-[#3D9970]/20"
-            >
-              <div className={`inline-flex rounded-lg p-2 ${item.color}`}>
-                <item.icon size={20} />
+        {messages.map((msg) => (
+          <div key={msg.id} style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
+            gap: 6,
+          }}>
+            <div style={{
+              maxWidth: '85%',
+              padding: '12px 16px',
+              borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
+              background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface)',
+              border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
+              color: msg.role === 'user' ? '#fff' : 'var(--text)',
+              fontSize: 15,
+              lineHeight: 1.6,
+              whiteSpace: 'pre-wrap',
+            }}>
+              {msg.text}
+            </div>
+
+            {msg.toolLogs && msg.toolLogs.length > 0 && (
+              <div style={{ maxWidth: '85%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {msg.toolLogs.map((log, idx) => {
+                  const app = appStyle[log.app] ?? { color: '#666', emoji: '🔧' };
+                  return (
+                    <div key={idx} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 12,
+                      color: 'var(--muted)',
+                      padding: '4px 10px',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                    }}>
+                      <span style={{ color: app.color, fontWeight: 700 }}>{app.emoji} {log.app}</span>
+                      <span style={{ opacity: 0.6 }}>›</span>
+                      <span>{log.tool}</span>
+                      {log.args.query != null && <span style={{ opacity: 0.6 }}>"{String(log.args.query)}"</span>}
+                    </div>
+                  );
+                })}
               </div>
-              <p className="mt-2 text-sm font-semibold text-gray-900">{item.label}</p>
-              <p className="text-xs text-gray-500">{item.price}</p>
-            </button>
-          ))}
-        </div>
-      </section>
+            )}
+          </div>
+        ))}
 
-      {/* Quick Searches */}
-      <section className="mt-5 px-5">
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-          {quickSearches.map((query) => (
-            <Link
-              key={query}
-              href="/search"
-              className="flex-shrink-0 rounded-full bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-[#3D9970]/10 hover:text-[#3D9970]"
-            >
-              {query}
-            </Link>
-          ))}
-        </div>
-      </section>
+        {thinking && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+            <div style={{
+              padding: '12px 16px',
+              borderRadius: '4px 18px 18px 18px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}>
+              <span style={{ fontSize: 22 }}>🐱</span>
+              <span style={{ fontSize: 14, color: 'var(--muted)' }}>Checking apps…</span>
+              <span style={{ display: 'flex', gap: 4 }}>
+                {[0, 1, 2].map((i) => (
+                  <span key={i} style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: 'var(--accent)',
+                    display: 'inline-block',
+                    animation: `bounce 1s ease-in-out ${i * 0.2}s infinite`,
+                  }} />
+                ))}
+              </span>
+            </div>
+            {liveLog.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {liveLog.map((log, idx) => {
+                  const app = appStyle[log.app] ?? { color: '#666', emoji: '🔧' };
+                  return (
+                    <div key={idx} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 12,
+                      color: 'var(--muted)',
+                      padding: '4px 10px',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                    }}>
+                      <span style={{ color: app.color, fontWeight: 700 }}>{app.emoji} {log.app}</span>
+                      <span style={{ opacity: 0.6 }}>›</span>
+                      <span>{log.tool}</span>
+                      {log.args.query != null && <span style={{ opacity: 0.6 }}>"{String(log.args.query)}"</span>}
+                      <span style={{ marginLeft: 'auto', color: '#22c55e', fontSize: 11 }}>✓</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Search Bar */}
-      <section className="mt-4 px-5">
-        <div className="flex items-center gap-3 rounded-2xl bg-gray-50 p-1 ring-1 ring-gray-200 transition focus-within:ring-2 focus-within:ring-[#3D9970]/30">
-          <button className="ml-3 rounded-full p-2 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600">
-            <Mic size={18} />
-          </button>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="fries & drink under 30 QAR..."
-            className="flex-1 bg-transparent py-3 text-sm text-gray-900 placeholder-gray-400 outline-none"
-          />
-          <Link
-            href="/search"
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#3D9970] text-white transition hover:bg-[#2E7D5A]"
-          >
-            <ArrowRight size={18} />
-          </Link>
-        </div>
-      </section>
+        <div ref={bottomRef} />
+      </div>
 
-      {/* Medicine Quick Link */}
-      <section className="mt-5 px-5">
-        <Link
-          href="/medicine"
-          className="flex items-center gap-3 rounded-xl bg-[#3D9970]/5 p-4 transition hover:bg-[#3D9970]/10"
+      <div style={{
+        padding: '12px 16px',
+        borderTop: '1px solid var(--border)',
+        background: 'var(--surface)',
+        flexShrink: 0,
+        display: 'flex',
+        gap: 10,
+        alignItems: 'center',
+      }}>
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="What do you want to eat?"
+          disabled={thinking}
+          style={{
+            flex: 1,
+            padding: '12px 16px',
+            borderRadius: 999,
+            border: '1.5px solid var(--border)',
+            background: 'var(--bg)',
+            color: 'var(--text)',
+            fontSize: 15,
+            outline: 'none',
+            opacity: thinking ? 0.5 : 1,
+          }}
+        />
+        <button
+          onClick={() => sendMessage(input)}
+          disabled={thinking || !input.trim()}
+          style={{
+            width: 44, height: 44, borderRadius: '50%',
+            background: thinking || !input.trim() ? 'var(--border)' : 'var(--accent)',
+            border: 'none',
+            color: '#fff',
+            fontSize: 18,
+            cursor: thinking || !input.trim() ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}
+          aria-label="Send"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3D9970]/10 text-[#3D9970]">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Looking for medicine?</p>
-            <p className="text-xs text-gray-500">Compare pharmacy prices instantly</p>
-          </div>
-          <ArrowRight size={16} className="ml-auto text-gray-400" />
-        </Link>
-      </section>
+          ↑
+        </button>
+      </div>
 
-      {/* Recent Activity Preview */}
-      <section className="mt-6 px-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">Recent Activity</h2>
-          <Link href="/saved" className="text-xs font-medium text-[#3D9970]">
-            View all
-          </Link>
-        </div>
-        <div className="mt-3 space-y-3">
-          <Link href="/compare" className="flex items-center gap-3 rounded-xl bg-gray-50 p-3 transition hover:bg-gray-100">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
-              <Flame size={18} />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">Burger under 30 QAR</p>
-              <p className="text-xs text-gray-500">Best found: 23.50 QAR</p>
-            </div>
-            <span className="text-xs font-semibold text-[#3D9970]">2 days ago</span>
-          </Link>
-        </div>
-      </section>
-
-      <BottomNav />
+      <style>{`
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+      `}</style>
     </div>
   );
 }

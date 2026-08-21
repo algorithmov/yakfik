@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+:root {
+  --brand: #e8400c;
+  --brand-dark: #c43208;
+  --bg: #fff8f5;
+  --surface: #ffffff;
+  --border: #f0e8e4;
+  --text: #1a0e09;
+  --muted: #7a6058;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+.deal-badge {
+  background: var(--brand);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}

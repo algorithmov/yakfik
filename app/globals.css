@@ -1,20 +1,62 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Graphik";
+  src: url("/fonts/Graphik-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik";
+  src: url("/fonts/Graphik-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik";
+  src: url("/fonts/Graphik-Semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik";
+  src: url("/fonts/Graphik-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --bg: #0f0f0f;
-  --surface: #1a1a1a;
-  --surface-hover: #242424;
-  --border: #2e2e2e;
-  --text: #e0e0e0;
-  --text-muted: #9e9e9e;
-  --muted: #9e9e9e;
-  --accent: #16a34a;
-  --accent-hover: #15803d;
-  --danger: #ff5252;
-  --success: #4caf50;
-  --warning: #ffb74d;
-  --radius: 8px;
+  /* ── Brand ── */
+  --bg: #f4f6f5;
+  --bg-alt: #eef1ef;
+  --surface: #ffffff;
+  --surface-hover: #f7f9f8;
+  --border: #e4e8e6;
+  --border-strong: #d7dcd9;
+
+  --text: #17201c;
+  --text-muted: #7a8480;
+  --muted: #7a8480;
+
+  --accent: #379566;
+  --accent-hover: #2c7d54;
+  --accent-light: #e6f3ec;
+  --accent-pill: #5aba8a;
+
+  --danger: #e0483e;
+  --success: #379566;
+  --warning: #e2a13d;
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
   --transition: 0.2s ease;
+
+  --font-sans: "Graphik", system-ui, -apple-system, sans-serif;
 }
 
 *, *::before, *::after {
@@ -27,7 +69,7 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 @layer utilities {

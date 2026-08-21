@@ -116,8 +116,17 @@ export default function YakfikPage() {
 
   return (
     <div style={{
+      background: 'var(--bg)',
+      height: '100dvh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'stretch',
+    }}>
+    <div style={{
       display: 'flex', flexDirection: 'column',
-      height: '100dvh', maxWidth: 680, margin: '0 auto',
+      height: '100dvh', width: '100%', maxWidth: 680,
+      margin: '0 auto',
+      background: 'var(--bg)',
     }}>
 
       {/* ── Header ── */}
@@ -151,6 +160,7 @@ export default function YakfikPage() {
         flex: 1, overflowY: 'auto',
         padding: '24px 16px 8px',
         display: 'flex', flexDirection: 'column', gap: 14,
+        background: 'var(--bg)',
       }}>
 
         {/* Empty state */}
@@ -370,6 +380,7 @@ export default function YakfikPage() {
         }
         * { box-sizing: border-box; }
       `}</style>
+    </div>
     </div>
   );
 }

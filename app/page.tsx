@@ -17,12 +17,17 @@ type ToolLog = {
 };
 
 const SUGGESTIONS = [
-  'What shawarma options are available?',
-  'Find me the cheapest burger',
-  'What deals are on right now?',
-  'Get me the fastest pizza delivery',
-  'Compare prices for shawarma and order the best one',
+  'Shawarma options?',
+  'Cheapest burger',
+  'Active deals',
+  'Fastest pizza',
+  'Best shawarma deal — order it',
 ];
+
+const APP_STYLE: Record<string, { color: string; label: string }> = {
+  talabat: { color: '#e8400c', label: '🍔 Talabat' },
+  snoonu:  { color: '#dc2626', label: '🐾 Snoonu'  },
+};
 
 export default function YakfikPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -38,17 +43,13 @@ export default function YakfikPage() {
 
   async function sendMessage(text: string) {
     if (!text.trim() || thinking) return;
-
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', text };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
     setThinking(true);
     setLiveLog([]);
 
-    const history = [...messages, userMsg].map((m) => ({
-      role: m.role,
-      content: m.text,
-    }));
+    const history = [...messages, userMsg].map(m => ({ role: m.role, content: m.text }));
 
     try {
       const res = await fetch('/api/chat', {
@@ -56,10 +57,7 @@ export default function YakfikPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: history }),
       });
-
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -70,7 +68,6 @@ export default function YakfikPage() {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-
         const parts = buffer.split('\n\n');
         buffer = parts.pop() ?? '';
 
@@ -78,7 +75,6 @@ export default function YakfikPage() {
           const eventMatch = part.match(/^event: (\w+)/);
           const dataMatch = part.match(/\ndata: (.+)$/s);
           if (!eventMatch || !dataMatch) continue;
-
           const event = eventMatch[1];
           const data = JSON.parse(dataMatch[1]);
 
@@ -86,28 +82,27 @@ export default function YakfikPage() {
             logs.push(data as ToolLog);
             setLiveLog([...logs]);
           } else if (event === 'answer') {
-            const assistantMsg: Message = {
+            setMessages(prev => [...prev, {
               id: crypto.randomUUID(),
               role: 'assistant',
               text: data.text,
               toolLogs: data.toolLogs,
-            };
-            setMessages((prev) => [...prev, assistantMsg]);
+            }]);
           } else if (event === 'error') {
-            const errorMsg: Message = {
+            setMessages(prev => [...prev, {
               id: crypto.randomUUID(),
               role: 'assistant',
               text: `Something went wrong: ${data.message}`,
-            };
-            setMessages((prev) => [...prev, errorMsg]);
+            }]);
           }
         }
       }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: 'assistant', text: `Error: ${err instanceof Error ? err.message : 'Unknown error'}` },
-      ]);
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        text: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      }]);
     } finally {
       setThinking(false);
       setLiveLog([]);
@@ -116,62 +111,71 @@ export default function YakfikPage() {
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(input);
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   }
-
-  const appStyle: Record<string, { color: string; emoji: string }> = {
-    talabat: { color: '#e8400c', emoji: '🍔' },
-    snoonu: { color: '#dc2626', emoji: '🐾' },
-  };
 
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100dvh',
-      maxWidth: 720,
-      margin: '0 auto',
+      display: 'flex', flexDirection: 'column',
+      height: '100dvh', maxWidth: 680, margin: '0 auto',
     }}>
+
+      {/* ── Header ── */}
       <header style={{
-        padding: '16px 20px',
+        padding: '14px 20px',
         borderBottom: '1px solid var(--border)',
         background: 'var(--surface)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
         flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <div style={{ fontSize: 36 }}>🏜️</div>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--text)', letterSpacing: '-0.03em' }}>يكفيك · Yakfik</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 1 }}>
+        <span style={{ fontSize: 28, lineHeight: 1 }}>🐱</span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{
+            fontWeight: 800, fontSize: 19, letterSpacing: '-0.03em',
+            color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <span style={{ color: 'var(--accent)' }}>Yakfik</span>
+            <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 15 }}>· يكفيك</span>
+          </div>
+          <div style={{
+            fontSize: 12, color: 'var(--muted)', marginTop: 1,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
             Compares Talabat &amp; Snoonu · finds the best deal · orders for you
           </div>
         </div>
       </header>
 
+      {/* ── Messages ── */}
       <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '20px 16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
+        flex: 1, overflowY: 'auto',
+        padding: '24px 16px 8px',
+        display: 'flex', flexDirection: 'column', gap: 14,
       }}>
+
+        {/* Empty state */}
         {messages.length === 0 && !thinking && (
-          <div style={{ textAlign: 'center', marginTop: 48 }}>
-            <div style={{ fontSize: 64, marginBottom: 16 }}>🐱</div>
+          <div style={{
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            flex: 1, textAlign: 'center', padding: '0 24px',
+          }}>
+            <div style={{ fontSize: 56, marginBottom: 12, lineHeight: 1 }}>🐱</div>
             <div style={{ fontWeight: 700, fontSize: 20, color: 'var(--text)', marginBottom: 8 }}>
               Hey, I&apos;m Yakfik!
             </div>
-            <div style={{ fontSize: 15, color: 'var(--muted)', marginBottom: 32, lineHeight: 1.6 }}>
-              Tell me what you want to eat and I&apos;ll check both Talabat and Snoonu to find you the best deal — then order it.
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-              {SUGGESTIONS.map((s) => (
+            <p style={{
+              fontSize: 14, color: 'var(--muted)', lineHeight: 1.7,
+              maxWidth: 340, marginBottom: 28,
+            }}>
+              Tell me what you want to eat. I&apos;ll check both Talabat and Snoonu,
+              find the best deal, and order it for you.
+            </p>
+            <div style={{
+              display: 'flex', flexWrap: 'wrap',
+              gap: 8, justifyContent: 'center', maxWidth: 420,
+            }}>
+              {SUGGESTIONS.map(s => (
                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
@@ -179,10 +183,20 @@ export default function YakfikPage() {
                     background: 'var(--surface)',
                     border: '1px solid var(--border)',
                     borderRadius: 999,
-                    padding: '8px 16px',
+                    padding: '7px 15px',
                     fontSize: 13,
                     color: 'var(--text)',
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'border-color 0.15s, color 0.15s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = 'var(--accent)';
+                    e.currentTarget.style.color = 'var(--accent)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                    e.currentTarget.style.color = 'var(--text)';
                   }}
                 >
                   {s}
@@ -192,47 +206,49 @@ export default function YakfikPage() {
           </div>
         )}
 
-        {messages.map((msg) => (
+        {/* Message bubbles */}
+        {messages.map(msg => (
           <div key={msg.id} style={{
-            display: 'flex',
-            flexDirection: 'column',
+            display: 'flex', flexDirection: 'column',
             alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
-            gap: 6,
+            gap: 5,
           }}>
             <div style={{
-              maxWidth: '85%',
-              padding: '12px 16px',
-              borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
+              maxWidth: '80%',
+              padding: '11px 15px',
+              borderRadius: msg.role === 'user'
+                ? '18px 18px 4px 18px'
+                : '4px 18px 18px 18px',
               background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface)',
               border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
               color: msg.role === 'user' ? '#fff' : 'var(--text)',
-              fontSize: 15,
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
+              fontSize: 14, lineHeight: 1.65, whiteSpace: 'pre-wrap',
             }}>
               {msg.text}
             </div>
 
+            {/* Tool call trace */}
             {msg.toolLogs && msg.toolLogs.length > 0 && (
-              <div style={{ maxWidth: '85%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ maxWidth: '80%', display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {msg.toolLogs.map((log, idx) => {
-                  const app = appStyle[log.app] ?? { color: '#666', emoji: '🔧' };
+                  const app = APP_STYLE[log.app] ?? { color: '#888', label: log.app };
                   return (
                     <div key={idx} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 12,
-                      color: 'var(--muted)',
-                      padding: '4px 10px',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      fontSize: 11, color: 'var(--muted)',
+                      padding: '3px 10px',
                       background: 'var(--surface)',
                       border: '1px solid var(--border)',
-                      borderRadius: 8,
+                      borderRadius: 6,
                     }}>
-                      <span style={{ color: app.color, fontWeight: 700 }}>{app.emoji} {log.app}</span>
-                      <span style={{ opacity: 0.6 }}>›</span>
-                      <span>{log.tool}</span>
-                      {log.args.query != null && <span style={{ opacity: 0.6 }}>"{String(log.args.query)}"</span>}
+                      <span style={{ color: app.color, fontWeight: 600 }}>{app.label}</span>
+                      <span style={{ opacity: 0.5 }}>›</span>
+                      <span>{log.tool.replace(/_/g, ' ')}</span>
+                      {log.args.query != null && (
+                        <span style={{ opacity: 0.5, fontStyle: 'italic' }}>
+                          &ldquo;{String(log.args.query)}&rdquo;
+                        </span>
+                      )}
                     </div>
                   );
                 })}
@@ -241,51 +257,52 @@ export default function YakfikPage() {
           </div>
         ))}
 
+        {/* Thinking indicator */}
         {thinking && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
             <div style={{
-              padding: '12px 16px',
+              padding: '11px 15px',
               borderRadius: '4px 18px 18px 18px',
               background: 'var(--surface)',
               border: '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
+              display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              <span style={{ fontSize: 22 }}>🐱</span>
-              <span style={{ fontSize: 14, color: 'var(--muted)' }}>Checking apps…</span>
-              <span style={{ display: 'flex', gap: 4 }}>
-                {[0, 1, 2].map((i) => (
+              <span style={{ fontSize: 18 }}>🐱</span>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Checking apps…</span>
+              <span style={{ display: 'flex', gap: 3, marginLeft: 2 }}>
+                {[0, 1, 2].map(i => (
                   <span key={i} style={{
-                    width: 6, height: 6, borderRadius: '50%',
-                    background: 'var(--accent)',
-                    display: 'inline-block',
+                    width: 5, height: 5, borderRadius: '50%',
+                    background: 'var(--accent)', display: 'inline-block',
                     animation: `bounce 1s ease-in-out ${i * 0.2}s infinite`,
                   }} />
                 ))}
               </span>
             </div>
+
             {liveLog.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingLeft: 4 }}>
                 {liveLog.map((log, idx) => {
-                  const app = appStyle[log.app] ?? { color: '#666', emoji: '🔧' };
+                  const app = APP_STYLE[log.app] ?? { color: '#888', label: log.app };
                   return (
                     <div key={idx} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 12,
-                      color: 'var(--muted)',
-                      padding: '4px 10px',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      fontSize: 11, color: 'var(--muted)',
+                      padding: '3px 10px',
                       background: 'var(--surface)',
                       border: '1px solid var(--border)',
-                      borderRadius: 8,
+                      borderRadius: 6,
+                      animation: 'fadeIn 0.25s ease',
                     }}>
-                      <span style={{ color: app.color, fontWeight: 700 }}>{app.emoji} {log.app}</span>
-                      <span style={{ opacity: 0.6 }}>›</span>
-                      <span>{log.tool}</span>
-                      {log.args.query != null && <span style={{ opacity: 0.6 }}>"{String(log.args.query)}"</span>}
-                      <span style={{ marginLeft: 'auto', color: '#22c55e', fontSize: 11 }}>✓</span>
+                      <span style={{ color: app.color, fontWeight: 600 }}>{app.label}</span>
+                      <span style={{ opacity: 0.5 }}>›</span>
+                      <span>{log.tool.replace(/_/g, ' ')}</span>
+                      {log.args.query != null && (
+                        <span style={{ opacity: 0.5, fontStyle: 'italic' }}>
+                          &ldquo;{String(log.args.query)}&rdquo;
+                        </span>
+                      )}
+                      <span style={{ marginLeft: 'auto', color: 'var(--accent)', fontSize: 10 }}>✓</span>
                     </div>
                   );
                 })}
@@ -297,48 +314,46 @@ export default function YakfikPage() {
         <div ref={bottomRef} />
       </div>
 
+      {/* ── Input bar ── */}
       <div style={{
-        padding: '12px 16px',
+        padding: '12px 16px 16px',
         borderTop: '1px solid var(--border)',
         background: 'var(--surface)',
         flexShrink: 0,
-        display: 'flex',
-        gap: 10,
-        alignItems: 'center',
+        display: 'flex', gap: 10, alignItems: 'center',
       }}>
         <input
           ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="What do you want to eat?"
           disabled={thinking}
           style={{
-            flex: 1,
-            padding: '12px 16px',
+            flex: 1, padding: '11px 16px',
             borderRadius: 999,
             border: '1.5px solid var(--border)',
             background: 'var(--bg)',
-            color: 'var(--text)',
-            fontSize: 15,
+            color: 'var(--text)', fontSize: 14,
             outline: 'none',
+            transition: 'border-color 0.15s',
             opacity: thinking ? 0.5 : 1,
           }}
+          onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
+          onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
         />
         <button
           onClick={() => sendMessage(input)}
           disabled={thinking || !input.trim()}
+          aria-label="Send"
           style={{
-            width: 44, height: 44, borderRadius: '50%',
+            width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
             background: thinking || !input.trim() ? 'var(--border)' : 'var(--accent)',
-            border: 'none',
-            color: '#fff',
-            fontSize: 18,
+            border: 'none', color: '#fff', fontSize: 17,
             cursor: thinking || !input.trim() ? 'default' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
+            transition: 'background 0.15s',
           }}
-          aria-label="Send"
         >
           ↑
         </button>
@@ -347,8 +362,13 @@ export default function YakfikPage() {
       <style>{`
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
+          50%       { transform: translateY(-4px); }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(3px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        * { box-sizing: border-box; }
       `}</style>
     </div>
   );

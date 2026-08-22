@@ -32,24 +32,41 @@ const APP_STYLE: Record<string, { color: string; label: string }> = {
 const generateId = () => Math.random().toString(36).substring(2, 10);
 
 export default function YakfikPage() {
-  const [screen, setScreen] = useState<'home' | 'chat' | 'profile'>('home');
+  const [screen, setScreen] = useState<'home' | 'chat' | 'profile' | 'saved'>('home');
   const [activeTab, setActiveTab] = useState('home');
+  const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
 
   const navigate = (tab: string) => {
     setActiveTab(tab);
     if (tab === 'home') setScreen('home');
-    else if (tab === 'profile') setScreen('profile');
     else if (tab === 'search') setScreen('chat');
-    // 'saved' stays on current screen for now
+    else if (tab === 'saved') setScreen('saved');
+    else if (tab === 'profile') setScreen('profile');
   };
+
+  const handleHomeSearch = (text: string) => {
+    if (text.trim()) {
+      setInitialChatMessage(text);
+      setActiveTab('search');
+      setScreen('chat');
+    }
+  };
+
+  const handleProfileClick = () => {
+    setActiveTab('profile');
+    setScreen('profile');
+  };
+
+  const clearInitialMessage = () => setInitialChatMessage(null);
 
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', width: '100%', maxWidth: 500, margin: '0 auto', position: 'relative', paddingBottom: 80 }}>
       
       {/* Screens */}
-      {screen === 'home' && <HomeScreen onNavigate={() => setScreen('chat')} />}
-      {screen === 'chat' && <ChatScreen onBack={() => setScreen('home')} />}
+      {screen === 'home' && <HomeScreen onNavigate={() => { setActiveTab('search'); setScreen('chat'); }} onSearchSubmit={handleHomeSearch} onProfileClick={handleProfileClick} />}
+      {screen === 'chat' && <ChatScreen onBack={() => setScreen('home')} initialMessage={initialChatMessage} onClearInitialMessage={clearInitialMessage} />}
       {screen === 'profile' && <ProfileScreen />}
+      {screen === 'saved' && <SavedScreen />}
 
       {/* Global Bottom Navigation */}
       <BottomNav activeTab={activeTab} onNavigate={navigate} />
@@ -58,7 +75,13 @@ export default function YakfikPage() {
 }
 
 /* ── HOME SCREEN ── */
-function HomeScreen({ onNavigate }: { onNavigate: () => void }) {
+function HomeScreen({ onNavigate, onSearchSubmit, onProfileClick }: { onNavigate: () => void; onSearchSubmit: (text: string) => void; onProfileClick: () => void }) {
+  const [searchInput, setSearchInput] = useState('');
+
+  const handleSearch = () => {
+    if (searchInput.trim()) onSearchSubmit(searchInput);
+  };
+
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
       {/* Header */}
@@ -67,7 +90,11 @@ function HomeScreen({ onNavigate }: { onNavigate: () => void }) {
         <div style={{ background: '#eef1ef', borderRadius: 999, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
           📍 Doha, QA <span style={{ fontSize: 10, color: 'var(--muted)' }}>⌄</span>
         </div>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#f26d24', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700 }}>C</div>
+        {/* Clickable Profile Avatar */}
+        <div 
+          onClick={onProfileClick} 
+          style={{ width: 36, height: 36, borderRadius: '50%', background: '#f26d24', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}
+        >C</div>
       </div>
 
       {/* Hero */}
@@ -101,12 +128,21 @@ function HomeScreen({ onNavigate }: { onNavigate: () => void }) {
         </div>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar (Functional) */}
       <div style={{ padding: '0 20px' }}>
         <div style={{ background: 'var(--surface)', borderRadius: 999, padding: '8px 8px 8px 18px', display: 'flex', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid var(--border)' }}>
           <span style={{ fontSize: 18, marginRight: 12, color: 'var(--muted)' }}>🎤</span>
-          <input placeholder="fries & drink under 30 QAR..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 14, color: 'var(--text)', fontFamily: 'inherit' }} />
-          <button onClick={onNavigate} style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent)', color: 'white', border: 'none', fontSize: 18, cursor: 'pointer' }}>→</button>
+          <input 
+            placeholder="fries & drink under 30 QAR..." 
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 14, color: 'var(--text)', fontFamily: 'inherit' }} 
+          />
+          <button 
+            onClick={handleSearch} 
+            style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent)', color: 'white', border: 'none', fontSize: 18, cursor: 'pointer' }}
+          >→</button>
         </div>
       </div>
     </div>
@@ -114,17 +150,27 @@ function HomeScreen({ onNavigate }: { onNavigate: () => void }) {
 }
 
 /* ── CHAT SCREEN ── */
-function ChatScreen({ onBack }: { onBack: () => void }) {
+function ChatScreen({ onBack, initialMessage, onClearInitialMessage }: { onBack: () => void; initialMessage: string | null; onClearInitialMessage: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
   const [liveLog, setLiveLog] = useState<ToolLog[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const initialMessageSent = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, thinking]);
+
+  // Send initial message from home page search
+  useEffect(() => {
+    if (initialMessage && !initialMessageSent.current) {
+      initialMessageSent.current = true;
+      sendMessage(initialMessage);
+      onClearInitialMessage();
+    }
+  }, [initialMessage, onClearInitialMessage]);
 
   async function sendMessage(text: string) {
     if (!text.trim() || thinking) return;
@@ -184,7 +230,6 @@ function ChatScreen({ onBack }: { onBack: () => void }) {
   return (
     <>
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 8px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
           <img src="/brands/yakfik-logo.svg" alt="Yak Fik" style={{ width: 70, height: 'auto' }} />
           <button onClick={onBack} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
@@ -192,7 +237,6 @@ function ChatScreen({ onBack }: { onBack: () => void }) {
           </button>
         </div>
 
-        {/* Messages */}
         {messages.length === 0 && !thinking && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, textAlign: 'center', padding: '0 24px' }}>
             <img src="/brands/mascot-smile.svg" alt="" style={{ width: 100, marginBottom: 16 }} />
@@ -269,7 +313,6 @@ function ChatScreen({ onBack }: { onBack: () => void }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input Bar */}
       <div style={{ padding: '12px 16px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: 10, alignItems: 'center' }}>
         <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Ask anything…" disabled={thinking} style={{ flex: 1, padding: '12px 18px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 14, outline: 'none', opacity: thinking ? 0.5 : 1 }} />
         <button onClick={() => sendMessage(input)} disabled={thinking || !input.trim()} style={{ width: 44, height: 44, borderRadius: '50%', background: thinking || !input.trim() ? 'var(--border-strong)' : 'var(--accent)', border: 'none', color: '#fff', fontSize: 18, cursor: thinking || !input.trim() ? 'default' : 'pointer' }}>↑</button>
@@ -278,11 +321,10 @@ function ChatScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-/* ── PROFILE SCREEN (Matches the image exactly) ── */
+/* ── PROFILE SCREEN ── */
 function ProfileScreen() {
   return (
     <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '20px' }}>
-      {/* Header */}
       <div style={{ padding: '20px 16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f26d24', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700 }}>C</div>
         <div>
@@ -291,7 +333,6 @@ function ProfileScreen() {
         </div>
       </div>
 
-      {/* Stats */}
       <div style={{ padding: '0 16px 24px', display: 'flex', gap: 10 }}>
         <div style={{ flex: 1, background: 'var(--accent-light)', borderRadius: 16, padding: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>1</div>
@@ -307,7 +348,6 @@ function ProfileScreen() {
         </div>
       </div>
 
-      {/* Preferences */}
       <div style={{ padding: '0 16px', marginBottom: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: 1, marginBottom: 10 }}>PREFERENCES</div>
         {[
@@ -323,7 +363,6 @@ function ProfileScreen() {
         ))}
       </div>
 
-      {/* Subscriptions */}
       <div style={{ padding: '0 16px', marginBottom: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: 1, marginBottom: 10 }}>SUBSCRIPTIONS</div>
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 16, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
@@ -334,7 +373,6 @@ function ProfileScreen() {
         </div>
       </div>
 
-      {/* Support */}
       <div style={{ padding: '0 16px', marginBottom: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: 1, marginBottom: 10 }}>SUPPORT</div>
         <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 16, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
@@ -342,6 +380,86 @@ function ProfileScreen() {
           <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Help & support</span>
           <span style={{ color: 'var(--muted)', fontSize: 18 }}>›</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── SAVED SCREEN ── */
+function SavedScreen() {
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '20px' }}>
+      {/* Header with Logo & Bell */}
+      <div style={{ padding: '20px 20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <img src="/brands/yakfik-logo.svg" alt="Yak Fik" style={{ width: 70, height: 'auto' }} />
+        <button style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔔</button>
+      </div>
+
+      {/* Recent Searches Section */}
+      <div style={{ padding: '0 16px 24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Recent searches</h3>
+          <span style={{ fontSize: 13, color: 'var(--accent)' }}>Clear all</span>
+        </div>
+        
+        {[
+          { search: 'Burger under 30 QAR', date: '2 DAYS AGO', price: 'QAR 23.50' },
+          { search: 'Healthy Salads', date: 'YESTERDAY', price: 'QAR 32.00' }
+        ].map((item, idx) => (
+          <div key={idx} style={{ background: 'var(--surface)', borderRadius: 16, padding: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: 16 }}>🔍</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{item.search}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{item.date}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Best found</div>
+              <div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 16 }}>{item.price}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Saved Restaurants Section */}
+      <div style={{ padding: '0 16px 24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Saved restaurants</h3>
+          <span style={{ fontSize: 13, color: 'var(--accent)' }}>View all</span>
+        </div>
+
+        <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <div style={{ position: 'relative', height: 180, background: 'linear-gradient(135deg, #8c5a3c, #5c3a21)' }}>
+            <div style={{ position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', color: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: 16 }}>🔖</div>
+            <div style={{ position: 'absolute', bottom: 12, left: 12, color: 'white', fontSize: 12, fontWeight: 700 }}>🍔 Image Placeholder</div>
+          </div>
+          <div style={{ padding: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 4 }}>Chick-N-Roll</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>⭐ 4.8 · American • Burgers</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Previous Comparisons Section */}
+      <div style={{ padding: '0 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Previous comparisons</h3>
+        </div>
+        
+        {[
+          { name: 'Spicy Zinger Combo', apps: '3 apps compared', date: 'OCT 12', price: '24.50 QAR' },
+          { name: 'Family Margherita Pizza', apps: '2 apps compared', date: 'OCT 10', price: '45.00 QAR' }
+        ].map((item, idx) => (
+          <div key={idx} style={{ background: 'var(--surface)', borderRadius: 16, padding: 14, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{item.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{item.apps} • {item.date}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>BEST DEAL</div>
+              <div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 16 }}>{item.price}</div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

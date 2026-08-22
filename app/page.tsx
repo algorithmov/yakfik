@@ -60,10 +60,10 @@ export default function YakfikPage() {
   const clearInitialMessage = () => setInitialChatMessage(null);
 
   return (
-    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', width: '100%', maxWidth: 500, margin: '0 auto', position: 'relative', paddingBottom: 80 }}>
+    <div className="app-shell">
       
       {/* Screens */}
-      {screen === 'home' && <HomeScreen onNavigate={() => { setActiveTab('search'); setScreen('chat'); }} onSearchSubmit={handleHomeSearch} onProfileClick={handleProfileClick} />}
+      {screen === 'home' && <HomeScreen onNavigate={() => { setActiveTab('search'); setScreen('chat'); }} onSearchSubmit={handleHomeSearch} onTrendingClick={handleHomeSearch} onProfileClick={handleProfileClick} />}
       {screen === 'chat' && <ChatScreen onBack={() => setScreen('home')} initialMessage={initialChatMessage} onClearInitialMessage={clearInitialMessage} />}
       {screen === 'profile' && <ProfileScreen />}
       {screen === 'saved' && <SavedScreen />}
@@ -75,7 +75,7 @@ export default function YakfikPage() {
 }
 
 /* ── HOME SCREEN ── */
-function HomeScreen({ onNavigate, onSearchSubmit, onProfileClick }: { onNavigate: () => void; onSearchSubmit: (text: string) => void; onProfileClick: () => void }) {
+function HomeScreen({ onNavigate, onSearchSubmit, onTrendingClick, onProfileClick }: { onNavigate: () => void; onSearchSubmit: (text: string) => void; onTrendingClick: (text: string) => void; onProfileClick: () => void }) {
   const [searchInput, setSearchInput] = useState('');
 
   const handleSearch = () => {
@@ -110,16 +110,20 @@ function HomeScreen({ onNavigate, onSearchSubmit, onProfileClick }: { onNavigate
         </p>
       </div>
 
-      {/* Trending */}
+      {/* Trending (now clickable and wraps on desktop) */}
       <div style={{ padding: '0 20px 24px' }}>
         <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: 'var(--text)' }}>Trending Now</h3>
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
+        <div className="trending-container">
           {[
             { emoji: '🔥', title: 'Shawarma Platter', sub: '~35 QAR avg.' },
             { emoji: '☕', title: 'Karak & Paratha', sub: '~15 QAR avg.' },
             { emoji: '🌿', title: 'Vegan Bowls', sub: '~45 QAR avg.' }
           ].map((item, index) => (
-            <div key={index} onClick={onNavigate} style={{ minWidth: 140, background: 'var(--surface)', borderRadius: 16, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', cursor: 'pointer' }}>
+            <div 
+              key={index} 
+              onClick={() => onTrendingClick(item.title)} 
+              style={{ minWidth: 140, flex: '1 1 140px', background: 'var(--surface)', borderRadius: 16, padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', cursor: 'pointer' }}
+            >
               <div style={{ fontSize: 24, marginBottom: 8 }}>{item.emoji}</div>
               <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{item.title}</div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.sub}</div>
@@ -128,7 +132,7 @@ function HomeScreen({ onNavigate, onSearchSubmit, onProfileClick }: { onNavigate
         </div>
       </div>
 
-      {/* Search Bar (Functional) */}
+      {/* Search Bar */}
       <div style={{ padding: '0 20px' }}>
         <div style={{ background: 'var(--surface)', borderRadius: 999, padding: '8px 8px 8px 18px', display: 'flex', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid var(--border)' }}>
           <span style={{ fontSize: 18, marginRight: 12, color: 'var(--muted)' }}>🎤</span>
@@ -163,7 +167,6 @@ function ChatScreen({ onBack, initialMessage, onClearInitialMessage }: { onBack:
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, thinking]);
 
-  // Send initial message from home page search
   useEffect(() => {
     if (initialMessage && !initialMessageSent.current) {
       initialMessageSent.current = true;
@@ -389,13 +392,11 @@ function ProfileScreen() {
 function SavedScreen() {
   return (
     <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '20px' }}>
-      {/* Header with Logo & Bell */}
       <div style={{ padding: '20px 20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <img src="/brands/yakfik-logo.svg" alt="Yak Fik" style={{ width: 70, height: 'auto' }} />
         <button style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔔</button>
       </div>
 
-      {/* Recent Searches Section */}
       <div style={{ padding: '0 16px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Recent searches</h3>
@@ -420,7 +421,6 @@ function SavedScreen() {
         ))}
       </div>
 
-      {/* Saved Restaurants Section */}
       <div style={{ padding: '0 16px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Saved restaurants</h3>
@@ -439,7 +439,6 @@ function SavedScreen() {
         </div>
       </div>
 
-      {/* Previous Comparisons Section */}
       <div style={{ padding: '0 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Previous comparisons</h3>
@@ -468,7 +467,7 @@ function SavedScreen() {
 /* ── BOTTOM NAVIGATION ── */
 function BottomNav({ activeTab, onNavigate }: { activeTab: string; onNavigate: (tab: string) => void }) {
   return (
-    <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, maxWidth: 500, margin: '0 auto', background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px', zIndex: 50 }}>
+    <div className="bottom-nav">
       {[
         { name: 'home', icon: '🏠', label: 'Home' },
         { name: 'search', icon: '🔍', label: 'Search' },

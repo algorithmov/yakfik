@@ -30,32 +30,26 @@
 }
 
 :root {
-  /* ── Brand ── */
   --bg: #f4f6f5;
   --bg-alt: #eef1ef;
   --surface: #ffffff;
   --surface-hover: #f7f9f8;
   --border: #e4e8e6;
   --border-strong: #d7dcd9;
-
   --text: #17201c;
   --text-muted: #7a8480;
   --muted: #7a8480;
-
   --accent: #379566;
   --accent-hover: #2c7d54;
   --accent-light: #e6f3ec;
   --accent-pill: #5aba8a;
-
   --danger: #e0483e;
   --success: #379566;
   --warning: #e2a13d;
-
   --radius: 16px;
   --radius-sm: 10px;
   --radius-pill: 999px;
   --transition: 0.2s ease;
-
   --font-sans: "Graphik", system-ui, -apple-system, sans-serif;
 }
 
@@ -70,6 +64,62 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
+}
+
+/* ── App Shell ── */
+.app-shell {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-bottom: 80px; /* space for bottom nav */
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 10px 0 16px;
+  z-index: 50;
+}
+
+/* ── Trending Container (wraps on desktop) ── */
+.trending-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+/* ── Responsive Breakpoints ── */
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 768px;
+  }
+  .trending-container {
+    overflow-x: visible;
+    flex-wrap: wrap;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    max-width: 1024px;
+  }
+  .trending-container {
+    gap: 16px;
+  }
 }
 
 @layer utilities {
